@@ -1,6 +1,6 @@
 Flask==3.0.0
 python-pptx==0.6.23
 pandas
-openpyxl==3.1.2
+openpyxl
 gunicorn==21.2.0
 xlrd
