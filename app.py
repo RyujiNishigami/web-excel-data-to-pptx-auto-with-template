@@ -79,6 +79,7 @@ def duplicate_last_row(table):
     tbl = table._tbl
     last_tr = tbl.tr_lst[-1]
     new_tr = copy.deepcopy(last_tr)
+    # ไม่เคลียร์ข้อความ เพื่อให้คำว่า (18°C - 26°C) ถูกก๊อปปี้ลงมาด้วย
     tbl.append(new_tr)
 
 def delete_excess_rows(table, keep_count):
@@ -118,6 +119,7 @@ def update_ppt_table(table, tables_data, tag_idx):
             if is_empty:
                 skip_col_indices.append(i)
 
+        # ปรับขนาดตารางให้พอดีเป๊ะกับข้อมูลเดือนล่าสุด!
         target_rows_needed = start_row + len(df_table)
         while len(table.rows) < target_rows_needed:
             duplicate_last_row(table)
@@ -175,13 +177,11 @@ def update_ppt_chart(chart, tables_data, tag_idx):
         is_temp = '℃' in sal_text or 'C)' in sal_text or 'C ' in sal_text
         is_humid = '%RH' in sal_text or '40-59' in sal_text
         
-        # ถอดระบบซ่อนเดือนทิ้ง (ไม่ต้องหา Empty Cols แล้ว) เพื่อให้เดือนที่ว่างแสดงบนแกนกราฟเสมอ
         cols_to_drop = []
         for col in df.columns:
             col_str = str(col).strip().upper()
             if col_str in ['SAL', 'TARGET', 'CRITERIA', 'STANDARD'] or 'UNNAMED' in col_str:
                 cols_to_drop.append(col)
-            # เอาคอลัมน์ที่ไม่ใช่เดือน (เช่น (18 ºC - 26 ºC)) ออกจากกราฟ
             elif '°C' in col_str or 'ºC' in col_str or ' C ' in col_str or 'C)' in col_str or '%RH' in col_str:
                 cols_to_drop.append(col)
                 
@@ -285,12 +285,14 @@ def replace_smart(prs, variables_dict, tables_data):
             table_tag_idx = None
             chart_tag_idx = None
             
+            # 1. เช็คจากชื่อซ่อน (Hidden Memory)
             if shape.name:
                 m_name = re.findall(r'\{\{\s*(table|chart)[\s_]*(\d+)\s*\}\}', shape.name, re.IGNORECASE)
                 for m in m_name:
                     if m[0].lower() == 'table': table_tag_idx = int(m[1])
                     if m[0].lower() == 'chart': chart_tag_idx = int(m[1])
 
+            # 2. เช็คจากข้อความทั่วไป
             if shape.has_text_frame:
                 for paragraph in shape.text_frame.paragraphs:
                     p_text = paragraph.text
@@ -310,6 +312,7 @@ def replace_smart(prs, variables_dict, tables_data):
                         clean_text = re.sub(r'\{\{\s*(table|chart)[\s_]*(\d+)\s*\}\}', '', p_text, flags=re.IGNORECASE).strip()
                         safe_replace_paragraph(paragraph, clean_text)
                             
+            # 3. เช็คจากตาราง
             if shape.has_table:
                 for row in shape.table.rows:
                     for cell in row.cells:
@@ -330,6 +333,7 @@ def replace_smart(prs, variables_dict, tables_data):
                             clean_text = re.sub(r'\{\{\s*(table|chart)[\s_]*(\d+)\s*\}\}', '', p_text, flags=re.IGNORECASE).strip()
                             safe_replace_cell(cell, clean_text)
                             
+            # 4. เช็คจากกราฟ
             if shape.has_chart and shape.chart.has_title and shape.chart.chart_title.text_frame:
                 title_text = shape.chart.chart_title.text_frame.text
                 changed = False
@@ -351,6 +355,7 @@ def replace_smart(prs, variables_dict, tables_data):
                     else:
                         shape.chart.chart_title.text_frame.text = clean_text
 
+            # ฝังหน่วยความจำล่องหน (เพื่อให้ใช้เป็นเทมเพลตซ้ำได้ในอนาคต!)
             if table_tag_idx is not None and shape.has_table:
                 shape.name = f"{{{{Table_{table_tag_idx}}}}}"
                 table_updates.append((shape, table_tag_idx))
@@ -444,7 +449,17 @@ def preview_data():
             tables.append(current_table_rows)
             
     except Exception as e:
-        print(f"Error parsing excel: {e}")
+        error_trace = traceback.format_exc()
+        error_html = (
+            "<div style='font-family: Arial, sans-serif; padding: 20px;'>"
+            "<h3 style='color: #d9534f;'>🚨 ระบบแจ้งเตือนจุดพัง (อ่านไฟล์ Excel ไม่ได้)</h3>"
+            "<p>พบข้อผิดพลาดในขณะอ่านข้อมูลจากไฟล์ Excel ลองตรวจสอบว่าไลบรารีขาดหาย หรือเป็นไฟล์ .xls/.xlsx ที่ถูกต้องหรือไม่:</p>"
+            f"<pre style='background: #f4f4f4; padding: 15px; border-radius: 5px; font-size: 14px; color: #333; overflow-x: auto; border: 1px solid #ddd; white-space: pre-wrap;'>{error_trace}</pre>"
+            "<br>"
+            "<a href='/' style='padding: 10px 15px; background: #0275d8; color: white; text-decoration: none; border-radius: 4px;'>กลับไปหน้าแรก</a>"
+            "</div>"
+        )
+        return error_html, 500
 
     try:
         pptx_vars = set()
