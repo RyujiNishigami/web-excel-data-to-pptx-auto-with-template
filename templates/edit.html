@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Report Data</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; }
+        .table-responsive-custom { overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5 mb-5">
+        <h3 class="mb-4 text-center">2. Review & Edit Data</h3>
+        <p class="text-center text-muted">ตรวจสอบและแก้ไขข้อมูล (ดึงจากไฟล์ Excel ประจำห้อง)</p>
+        
+        <form action="/generate" method="POST">
+            <input type="hidden" name="pptx_filename" value="{{ pptx_filename }}">
+            <input type="hidden" name="table_count" value="{{ tables|length }}">
+            
+            <div class="row">
+                <!-- Variables Section -->
+                <div class="col-md-3">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-secondary text-white fw-bold">ข้อมูลตัวแปรทั่วไป</div>
+                        <div class="card-body">
+                            {% for key, value in variables.items() %}
+                            <div class="mb-3">
+                                <label for="var_{{ loop.index }}" class="form-label">{{ key }}</label>
+                                <input type="text" class="form-control" name="var_{{ key }}" id="var_{{ loop.index }}" value="{{ value }}" title="Variable {{ key }}" aria-label="Variable {{ key }}">
+                            </div>
+                            {% endfor %}
+                            {% if not variables %}
+                            <p class="text-muted small">ไม่พบข้อมูลตัวแปรที่มีวงเล็บ {% raw %}{{...}}{% endraw %} ในไฟล์ Excel</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tables Section -->
+                <div class="col-md-9">
+                    {% for table in tables %}
+                    {% set t_idx = loop.index0 %}
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-secondary text-white fw-bold">
+                            Table / Chart {{ loop.index }} 
+                            <span class="badge bg-light text-dark ms-2">ใช้กับ {{ '{{Table_' ~ loop.index ~ '}}' }} หรือ {{ '{{Chart_' ~ loop.index ~ '}}' }}</span>
+                        </div>
+                        <div class="card-body table-responsive-custom">
+                            <input type="hidden" name="t{{ t_idx }}_rows" value="{{ table|length }}">
+                            <input type="hidden" name="t{{ t_idx }}_cols" value="{{ table[0]|length if table else 0 }}">
+                            
+                            <table class="table table-bordered table-sm text-nowrap">
+                                {% for row in table %}
+                                {% set r_idx = loop.index0 %}
+                                    {% if loop.first %}
+                                    <thead class="table-light">
+                                        <tr>
+                                            {% for cell in row %}
+                                            {% set c_idx = loop.index0 %}
+                                            <th>
+                                                <input type="text" class="form-control form-control-sm fw-bold" name="table_{{ t_idx }}_{{ r_idx }}_{{ c_idx }}" value="{{ cell }}">
+                                            </th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% else %}
+                                        <tr>
+                                            {% for cell in row %}
+                                            {% set c_idx = loop.index0 %}
+                                            <td>
+                                                <input type="text" class="form-control form-control-sm" name="table_{{ t_idx }}_{{ r_idx }}_{{ c_idx }}" value="{{ cell }}">
+                                            </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if not tables %}
+                    <div class="alert alert-warning">ไม่พบข้อมูลตารางในไฟล์ Excel</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="btn btn-success btn-lg px-5">Generate & Download PPTX</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
